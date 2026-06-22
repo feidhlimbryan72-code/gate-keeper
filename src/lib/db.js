@@ -95,3 +95,53 @@ export const initMockData = async () => {
     console.error('Seeding database error:', err);
   }
 };
+
+export const getUserAssignments = async (userId) => {
+  const { data, error } = await supabase
+    .from('event_assignments')
+    .select(`
+      *,
+      event:events (*)
+    `)
+    .eq('userId', userId);
+
+  if (error) {
+    console.error(`Error fetching assignments for user ${userId}:`, error);
+    throw error;
+  }
+  return data || [];
+};
+
+export const getEventAssignments = async (eventId) => {
+  const { data, error } = await supabase
+    .from('event_assignments')
+    .select(`
+      *,
+      user:users (*)
+    `)
+    .eq('eventId', eventId);
+
+  if (error) {
+    console.error(`Error fetching assignments for event ${eventId}:`, error);
+    throw error;
+  }
+  return data || [];
+};
+
+export const getAssignmentForUserAndEvent = async (userId, eventId) => {
+  const { data, error } = await supabase
+    .from('event_assignments')
+    .select(`
+      *,
+      event:events (*),
+      user:users (*)
+    `)
+    .eq('userId', userId)
+    .eq('eventId', eventId);
+
+  if (error) {
+    console.error(`Error fetching assignment for user ${userId} and event ${eventId}:`, error);
+    throw error;
+  }
+  return data && data.length > 0 ? data[0] : null;
+};

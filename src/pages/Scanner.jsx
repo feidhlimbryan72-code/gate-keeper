@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
-import { getDocument, updateDocument, addDocument } from '../lib/db';
-import { CheckCircle, XCircle, Truck, ArrowRight, ShieldAlert, Camera } from 'lucide-react';
+import { getDocument, updateDocument, addDocument, getCollection, getAssignmentForUserAndEvent } from '../lib/db';
+import { CheckCircle, XCircle, Truck, ArrowRight, ShieldAlert, Camera, Calendar } from 'lucide-react';
 
 export default function Scanner() {
   const [mode, setMode] = useState('entry'); // 'entry' or 'exit'
@@ -9,20 +9,60 @@ export default function Scanner() {
   const [linkedUser, setLinkedUser] = useState(null); // When a vehicle needs a driver
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState(null);
+  
+  const [events, setEvents] = useState([]);
+  const [selectedEventId, setSelectedEventId] = useState('');
+  
   const scannerRef = useRef(null);
 
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const data = await getCollection('events');
+        setEvents(data);
+        if (data.length > 0) {
+          setSelectedEventId(data[0].id);
+        }
+      } catch (err) {
+        console.error("Error loading events for scanner:", err);
+      }
+    };
+    fetchEvents();
+  }, []);
+
   const processWorkerScan = async (userId) => {
+    if (!selectedEventId) {
+      setScanResult({ type: 'error', msg: 'NO EVENT SELECTED' });
+      return;
+    }
+
     const user = await getDocument('users', userId);
     if (!user) {
       setScanResult({ type: 'error', msg: 'USER NOT REGISTERED' });
       return;
     }
 
+    const eventName = events.find(e => e.id === selectedEventId)?.name || 'Event';
+
+    // Verify assignment and safety quiz completion for this specific event
+    const assignment = await getAssignmentForUserAndEvent(userId, selectedEventId);
+    if (!assignment) {
+      setScanResult({ 
+        type: 'error', 
+        msg: `ACCESS DENIED: NOT ASSIGNED TO ${eventName.toUpperCase()}.` 
+      });
+      return;
+    }
+
+    if (!assignment.inductionStatus) {
+      setScanResult({ 
+        type: 'error', 
+        msg: `ACCESS DENIED: PENDING BRIEFING FOR ${eventName.toUpperCase()}.` 
+      });
+      return;
+    }
+
     if (mode === 'entry') {
-      if (!user.safetyBriefingStatus) {
-        setScanResult({ type: 'error', msg: 'SAFETY BRIEFING NOT COMPLETE. INBOUND ACCESS DENIED.' });
-        return;
-      }
       if (user.onSiteStatus) {
          await addLog('entry', userId, 'user');
          setScanResult({ type: 'success', msg: `${user.fullName} is already on site. Double-scan logged.`, user });
@@ -30,11 +70,11 @@ export default function Scanner() {
       }
       await updateDocument('users', userId, { onSiteStatus: true });
       await addLog('entry', userId, 'user');
-      setScanResult({ type: 'success', msg: `${user.fullName} CLEARED FOR ENTRY.`, user });
+      setScanResult({ type: 'success', msg: `${user.fullName} CLEARED FOR ENTRY (${eventName}).`, user });
     } else {
       await updateDocument('users', userId, { onSiteStatus: false });
       await addLog('exit', userId, 'user');
-      setScanResult({ type: 'success', msg: `${user.fullName} CLEARED FOR EXIT.`, user });
+      setScanResult({ type: 'success', msg: `${user.fullName} CLEARED FOR EXIT (${eventName}).`, user });
     }
   };
 
@@ -83,6 +123,7 @@ export default function Scanner() {
 
   useEffect(() => {
     if (scanResult) return;
+    if (events.length === 0) return; // Wait for events to load
 
     const scanner = new Html5Qrcode("qr-reader");
     scannerRef.current = scanner;
@@ -93,20 +134,17 @@ export default function Scanner() {
           { facingMode: "environment" },
           { fps: 10, qrbox: { width: 250, height: 250 } },
           onScanSuccess,
-          () => {
-            // standard tick warning (ignored to not flood logs)
-          }
+          () => {}
         );
         setIsScanning(true);
         setError(null);
       } catch (err) {
         console.error("Camera access error:", err);
-        setError("Camera permission required. Please allow camera access in your browser settings.");
+        setError("Camera permission required. Please allow camera access in your settings.");
         setIsScanning(false);
       }
     };
 
-    // Small delay to ensure DOM element is mounted before library tries to attach
     const timer = setTimeout(startScanner, 300);
 
     return () => {
@@ -115,7 +153,7 @@ export default function Scanner() {
         scanner.stop().catch(e => console.error("Error stopping scanner:", e));
       }
     };
-  }, [scanResult, mode, linkedUser]);
+  }, [scanResult, mode, linkedUser, events]);
 
   const addLog = async (type, entityId, entityType, pairedId = null) => {
       await addDocument('logs', {
@@ -135,24 +173,49 @@ export default function Scanner() {
     <div className={`min-h-full flex flex-col ${scanResult?.type === 'success' ? 'bg-green-500' : scanResult?.type === 'error' ? 'bg-red-600' : 'bg-gray-100'}`}>
       
       {!scanResult && (
-        <div className="p-4 bg-gray-900 border-b-2 border-yellow-400">
-          <div className="flex bg-gray-800 rounded-lg p-1.5 shadow-inner">
-            <button
-              onClick={() => setMode('entry')}
-              className={`flex-1 py-2.5 text-sm font-bold uppercase rounded-md transition-all ${
-                mode === 'entry' ? 'bg-yellow-400 text-gray-900 shadow-md transform scale-105' : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              Entry Mode
-            </button>
-            <button
-              onClick={() => setMode('exit')}
-              className={`flex-1 py-2.5 text-sm font-bold uppercase rounded-md transition-all ${
-                mode === 'exit' ? 'bg-yellow-400 text-gray-900 shadow-md transform scale-105' : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              Exit Mode
-            </button>
+        <div className="bg-gray-900 border-b-2 border-yellow-400">
+          {/* Mode Selector */}
+          <div className="p-4 pb-2">
+            <div className="flex bg-gray-800 rounded-lg p-1.5 shadow-inner">
+              <button
+                onClick={() => setMode('entry')}
+                className={`flex-1 py-2 text-xs font-bold uppercase rounded-md transition-all ${
+                  mode === 'entry' ? 'bg-yellow-400 text-gray-900 shadow-md' : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                Entry Mode
+              </button>
+              <button
+                onClick={() => setMode('exit')}
+                className={`flex-1 py-2 text-xs font-bold uppercase rounded-md transition-all ${
+                  mode === 'exit' ? 'bg-yellow-400 text-gray-900 shadow-md' : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                Exit Mode
+              </button>
+            </div>
+          </div>
+
+          {/* Event Selector for Gatekeeper */}
+          <div className="px-4 pb-4 flex flex-col gap-1.5">
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+              <Calendar className="w-3.5 h-3.5 text-yellow-400" /> Active Event Gatekeep
+            </label>
+            {events.length > 0 ? (
+              <select
+                value={selectedEventId}
+                onChange={(e) => setSelectedEventId(e.target.value)}
+                className="w-full bg-gray-800 text-white border border-gray-700 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-yellow-400 font-semibold"
+              >
+                {events.map(ev => (
+                  <option key={ev.id} value={ev.id}>{ev.name} ({ev.location})</option>
+                ))}
+              </select>
+            ) : (
+              <div className="text-red-400 text-xs font-semibold py-1">
+                No events configured. Configure events in Admin first.
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -170,7 +233,13 @@ export default function Scanner() {
       )}
 
       <div className="flex-1 flex flex-col">
-        {!scanResult ? (
+        {events.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-gray-100">
+             <ShieldAlert className="w-16 h-16 text-gray-400 mb-4 animate-bounce" />
+             <h3 className="text-lg font-black text-gray-900">Setup Required</h3>
+             <p className="text-xs text-gray-500 max-w-[240px] mt-1">Please create an event in the Desktop Admin dashboard before scanning workers.</p>
+          </div>
+        ) : !scanResult ? (
             <div className="flex-1 p-4 flex flex-col bg-black justify-center">
                 <div className="relative w-full max-w-sm mx-auto aspect-square flex flex-col">
                   <div id="qr-reader" className="w-full h-full overflow-hidden rounded-2xl bg-slate-950 border-4 border-gray-800 shadow-2xl"></div>

@@ -7,6 +7,7 @@ import DigitalId from './pages/DigitalId';
 import DesktopAdmin from './pages/DesktopAdmin';
 import Login from './pages/Login';
 import ProtectedRoute from './components/ProtectedRoute';
+import InductionFlow from './pages/InductionFlow';
 import { initMockData } from './lib/db';
 import { supabase } from './lib/supabase';
 import { QrCode, ShieldCheck, LayoutDashboard, UserPlus, Monitor } from 'lucide-react';
@@ -81,6 +82,7 @@ function AppContent() {
         <Routes>
           <Route path="/" element={<Registration />} />
           <Route path="/id/:userId" element={<DigitalId />} />
+          <Route path="/induction/:eventId/:userId" element={<InductionFlow />} />
           <Route path="/scanner" element={<ProtectedRoute><Scanner /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         </Routes>
