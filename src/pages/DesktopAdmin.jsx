@@ -451,11 +451,11 @@ export default function DesktopAdmin() {
                           />
                         </div>
                         <div>
-                          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1.5">Zone Location</label>
+                          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1.5">Event Venue / Location</label>
                           <input 
                             value={eventLocation}
                             onChange={e=>setEventLocation(e.target.value)}
-                            placeholder="Main Stage Logistics Gate"
+                            placeholder="Glastonbury Festival Grounds"
                             className="w-full bg-gray-50 border-2 border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-yellow-400 font-semibold"
                             required
                           />
