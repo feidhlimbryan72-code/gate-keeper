@@ -123,46 +123,78 @@ export default function DesktopAdmin() {
     
     if (newEvent && newEvent.id) {
       // Auto-seed a high-quality boilerplate induction & quiz for this event
-      const defaultSlides = `Welcome to the safety induction briefing for **${eventName.trim()}**!
-
-Please review the following essential safety slides before starting your quiz.
-
----
-
-### Slide 1: Personal Protective Equipment (PPE)
-* **High-Visibility Vests** are mandatory at all times in the logistics and staging areas.
-* **Safety Footwear** (steel toe cap boots) must be worn during build-up and breakdown phases.
-* Hard hats are required in designated overhead work zones.
+      const defaultSlides = `### Slide 1: Safety Culture & Irish H&S Law (Safety, Health and Welfare at Work Act 2005)
+Under Section 13 of the Safety, Health and Welfare Act 2005, all personnel on site have legal duties:
+* **Cooperate**: You must cooperate with site managers and security to ensure safety.
+* **Report Hazards**: You must immediately report any safety defects, hazards, or near-misses.
+* **SOLAS Safe Pass**: Under the 2013 Construction Regulations, a valid SOLAS Safe Pass card is legally required for anyone performing rigging, staging, crew, or security tasks on this site.
 
 ---
 
-### Slide 2: Vehicle & Site Logistics
-* The site speed limit is strictly **5 mph** for all vehicles.
-* Give way to pedestrians, plant machinery, and emergency vehicles at all times.
-* Vehicles must park only in designated contractor unloading bays.
+### Slide 2: Site Traffic Management & Plant Safety
+* **Speed Limits**: The maximum speed limit across the entire event site is strictly **10 km/h**.
+* **Reversing Vehicles**: Reversing plant machinery (telehandlers, forklifts, trucks) is a major site hazard. You must cooperate with trained banksmen.
+* **Exclusion Zones**: Never enter a vehicle lifting zone or walk directly behind reversing machinery. Keep to marked pedestrian walkways.
 
 ---
 
-### Slide 3: Emergency & Incident Reporting
-* In the event of an emergency, evacuate to the designated assembly point at the Main Entrance.
-* Report all accidents, near-misses, or safety hazards to the nearest security guard or site manager.
-* First aid kits are located at the Security HQ Gate and the First Aid Tent.`;
+### Slide 3: Scaffold, Staging & Work at Heights
+* **Falls from Height**: Any work involving a risk of falling from heights (staging build, truss rigging, lighting install) must be risk-assessed.
+* **Scafftags**: Never climb scaffolding, staging, or temporary demountable structures unless they display a valid green inspection tag (e.g. Scafftag) and you are certified.
+* **Fall Protection**: Fall arrest or restraint harness equipment must be worn and anchored correctly when working above 2 meters.
+
+---
+
+### Slide 4: PPE & Emergency Procedures
+* **Mandatory PPE**: Steel-toe safety footwear, high-visibility vest (EN ISO 20471), and a safety helmet (EN 397) are mandatory in active work zones.
+* **Emergency Evacuation**: In the event of an evacuation alarm, stop work immediately, secure machinery, and walk to the designated **Assembly Point at the Main Entrance Gate**.
+* **Incident Reporting**: All accidents, injuries, and near-misses must be logged at the Safety HQ immediately.`;
 
       const defaultQuiz = [
         {
-          question: "What is the speed limit for vehicles in the staging area?",
-          options: ["5 mph", "15 mph", "25 mph"],
-          correctIndex: 0
-        },
-        {
-          question: "Which of the following is mandatory in the logistics zone?",
-          options: ["Regular trainers", "High-visibility vest and safety footwear", "No specific footwear required"],
+          question: "Under Section 13 of the Irish Safety, Health and Welfare at Work Act 2005, what is a legal duty of all employees on site?",
+          options: [
+            "To ignore minor safety defects if they delay work",
+            "To report to the employer any defect or hazard in the place or system of work",
+            "To only wear PPE if they feel there is an active danger"
+          ],
           correctIndex: 1
         },
         {
-          question: "Where should you go in the event of an emergency evacuation?",
-          options: ["Your vehicle", "The nearest bar area", "The designated assembly point at the Main Entrance"],
-          correctIndex: 2
+          question: "Under the Safety, Health and Welfare at Work (Construction) Regulations 2013, who is legally required to hold a valid SOLAS Safe Pass card?",
+          options: [
+            "Only administrative office staff",
+            "Anyone performing rigging, staging, general crew, or site security work",
+            "Only external vendors delivering food off-site"
+          ],
+          correctIndex: 1
+        },
+        {
+          question: "When walking near reversing plant machinery (such as telehandlers or forklifts) on site, what is the mandatory safety requirement?",
+          options: [
+            "Walk as close to the vehicle as possible so the driver can hear you",
+            "Always keep a safe distance, cooperate with a trained banksman, and stick to designated pedestrian paths",
+            "Shout loudly at the driver to let them know your position"
+          ],
+          correctIndex: 1
+        },
+        {
+          question: "Before climbing or working on temporary demountable structures (scaffolding or stages) on an Irish event site, what must you verify?",
+          options: [
+            "That the structure looks stable from a distance",
+            "That the structure has been signed off by a competent inspector and displays a valid inspection tag (e.g. Scafftag)",
+            "That you have at least 5 years of climbing experience without safety equipment"
+          ],
+          correctIndex: 1
+        },
+        {
+          question: "In the event of an emergency evacuation on an event build/break site, what is the correct procedure?",
+          options: [
+            "Pack up all your personal tools and equipment before leaving the site",
+            "Proceed immediately to the designated Assembly Point, keep emergency routes clear, and wait for roll call",
+            "Leave the venue immediately in your vehicle to avoid blocking traffic"
+          ],
+          correctIndex: 1
         }
       ];
 
