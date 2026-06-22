@@ -1,6 +1,7 @@
 services:
-  - type: static
+  - type: web
     name: gatekeeper-app
+    runtime: static
     buildCommand: npm install && npm run build
     staticPublishPath: dist
     routes:
