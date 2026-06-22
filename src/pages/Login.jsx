@@ -23,8 +23,31 @@ const Login = () => {
 
       if (authError) throw authError;
 
-      // Navigate to homepage after successful login
-      navigate('/');
+      if (data?.user) {
+        // Auto-provision a worker profile for the security guard if it doesn't exist
+        const { data: profile } = await supabase
+          .from('users')
+          .select('id')
+          .eq('id', data.user.id)
+          .maybeSingle();
+
+        if (!profile) {
+          const namePart = email.split('@')[0];
+          const displayName = namePart.charAt(0).toUpperCase() + namePart.slice(1) + ' (Guard)';
+          
+          await supabase.from('users').insert([{
+            id: data.user.id,
+            fullName: displayName,
+            company: 'Gate Security',
+            phoneNumber: '555-0000',
+            safetyBriefingStatus: true,
+            onSiteStatus: false
+          }]);
+        }
+      }
+
+      // Navigate straight to the guard scanner on login
+      navigate('/scanner');
     } catch (err) {
       setError(err.message || 'An error occurred during authentication.');
     } finally {

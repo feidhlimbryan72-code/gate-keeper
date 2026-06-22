@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import Registration from './pages/Registration';
 import Scanner from './pages/Scanner';
-import Dashboard from './pages/Dashboard';
 import DigitalId from './pages/DigitalId';
 import DesktopAdmin from './pages/DesktopAdmin';
 import Login from './pages/Login';
@@ -10,7 +9,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import InductionFlow from './pages/InductionFlow';
 import { initMockData } from './lib/db';
 import { supabase } from './lib/supabase';
-import { QrCode, ShieldCheck, LayoutDashboard, UserPlus, Monitor } from 'lucide-react';
+import { QrCode, ShieldCheck, UserPlus, Monitor, HardHat } from 'lucide-react';
 
 function App() {
   useEffect(() => {
@@ -26,10 +25,11 @@ function App() {
 
 function AppContent() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    // Track auth session for rendering header state
+    // Track auth session for rendering header state and guard status
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
     });
@@ -42,6 +42,17 @@ function AppContent() {
       subscription?.unsubscribe();
     };
   }, []);
+
+  // Worker Auto-Bookmark Redirection
+  useEffect(() => {
+    // If not logged in as a guard, on '/' route, and has a registered ID, auto-redirect to their ID card
+    if (!user && location.pathname === '/') {
+      const savedId = localStorage.getItem('my_worker_id');
+      if (savedId) {
+        navigate(`/id/${savedId}`, { replace: true });
+      }
+    }
+  }, [user, location.pathname, navigate]);
 
   const isFullScreen = location.pathname === '/admin' || location.pathname === '/login';
 
@@ -84,43 +95,62 @@ function AppContent() {
           <Route path="/id/:userId" element={<DigitalId />} />
           <Route path="/induction/:eventId/:userId" element={<InductionFlow />} />
           <Route path="/scanner" element={<ProtectedRoute><Scanner /></ProtectedRoute>} />
-          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         </Routes>
       </main>
 
-      <Navigation />
+      <Navigation user={user} />
     </div>
   );
 }
 
-function Navigation() {
+function Navigation({ user }) {
   const location = useLocation();
+  const myWorkerId = localStorage.getItem('my_worker_id');
   
-  const navItems = [
-    { path: '/', icon: UserPlus, label: 'Register' },
-    { path: '/scanner', icon: QrCode, label: 'Guard Scan' },
-    { path: '/dashboard', icon: LayoutDashboard, label: 'Admin' },
-  ];
+  // Compute navigation items dynamically based on role
+  let navItems = [];
+  
+  if (user) {
+    // Security Officer navigation
+    navItems = [
+      { path: `/id/${user.id}`, icon: HardHat, label: 'My ID' },
+      { path: '/scanner', icon: QrCode, label: 'Guard Scan' },
+    ];
+  } else {
+    // General Operative navigation
+    navItems = [
+      { path: '/', icon: UserPlus, label: 'Register' },
+    ];
+    if (myWorkerId) {
+      navItems.push({ path: `/id/${myWorkerId}`, icon: HardHat, label: 'My ID' });
+    }
+  }
+
+  // If there's no navigation items, don't render the bar
+  if (navItems.length === 0) return null;
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-gray-900 text-white shadow-[0_-10px_30px_rgba(0,0,0,0.5)] z-50 border-t border-gray-800">
       <div className="max-w-md mx-auto flex justify-around relative">
         
         {navItems.map((item) => {
-          const isActive = location.pathname === item.path || (item.path === '/' && location.pathname.startsWith('/id'));
+          const isIdTab = item.path.startsWith('/id');
+          const isCurrentUrlId = location.pathname.startsWith('/id') || location.pathname.startsWith('/induction');
+          const isItemActive = isIdTab ? isCurrentUrlId : (location.pathname === item.path);
+          
           const Icon = item.icon;
           return (
             <Link
               key={item.path}
               to={item.path}
               className={`flex-1 py-3 flex flex-col items-center gap-1.5 transition-all duration-200 relative ${
-                isActive ? 'text-yellow-400' : 'text-gray-400 hover:text-white'
+                isItemActive ? 'text-yellow-400' : 'text-gray-400 hover:text-white'
               }`}
             >
-              {isActive && (
+              {isItemActive && (
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-yellow-400 rounded-b-full shadow-[0_0_8px_rgba(250,204,21,0.8)]" />
               )}
-              <Icon className={`w-6 h-6 mt-1 transition-transform ${isActive ? 'scale-110' : ''}`} />
+              <Icon className={`w-6 h-6 mt-1 transition-transform ${isItemActive ? 'scale-110' : ''}`} />
               <span className="text-[10px] font-bold uppercase tracking-widest">{item.label}</span>
             </Link>
           );

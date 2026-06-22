@@ -37,6 +37,7 @@ export default function Registration() {
 
     try {
       const user = await addDocument('users', data);
+      localStorage.setItem('my_worker_id', user.id);
       navigate(`/id/${user.id}`);
     } catch (err) {
       console.error(err);
