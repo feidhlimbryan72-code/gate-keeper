@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { addDocument, getCollection } from '../lib/db';
+import { supabase } from '../lib/supabase';
 import { User, Building2, Phone, ArrowRight } from 'lucide-react';
 
 export default function Registration() {
@@ -14,7 +15,7 @@ export default function Registration() {
     const name = fd.get('fullName').trim();
     const company = fd.get('company').trim();
     
-    // Cross-reference with manifest
+    // Cross-reference with approved manifest
     const manifest = await getCollection('manifest');
     const isApproved = manifest.some(
       entry => entry.fullName.toLowerCase() === name.toLowerCase() && 
@@ -27,15 +28,34 @@ export default function Registration() {
       return;
     }
 
-    const data = {
-      fullName: name,
-      company: company,
-      phoneNumber: fd.get('phoneNumber'),
-      safetyBriefingStatus: false, // Must be toggled true by admin/guard
-      onSiteStatus: false,
-    };
-
     try {
+      // Check if this worker is already registered in the 'users' table (case-insensitively)
+      const { data: existingUsers, error: checkErr } = await supabase
+        .from('users')
+        .select('id')
+        .ilike('fullName', name)
+        .ilike('company', company);
+
+      if (checkErr) throw checkErr;
+
+      if (existingUsers && existingUsers.length > 0) {
+        // Re-link browser bookmark to the first matched profile
+        const existingId = existingUsers[0].id;
+        localStorage.setItem('my_worker_id', existingId);
+        navigate(`/id/${existingId}`);
+        setLoading(false);
+        return;
+      }
+
+      // Otherwise, register as a new worker
+      const data = {
+        fullName: name,
+        company: company,
+        phoneNumber: fd.get('phoneNumber'),
+        safetyBriefingStatus: false,
+        onSiteStatus: false,
+      };
+
       const user = await addDocument('users', data);
       localStorage.setItem('my_worker_id', user.id);
       navigate(`/id/${user.id}`);

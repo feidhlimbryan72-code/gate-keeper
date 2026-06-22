@@ -36,7 +36,29 @@ export default function DigitalId() {
   }
 
   if (!user) {
-    return <div className="p-6 text-center text-red-500 font-bold mt-20">ID Not Found</div>;
+    // Clear invalid bookmark so user doesn't get stuck in auto-redirect loops
+    const savedId = localStorage.getItem('my_worker_id');
+    if (savedId === userId) {
+      localStorage.removeItem('my_worker_id');
+    }
+
+    return (
+      <div className="p-6 text-center mt-20 max-w-sm mx-auto">
+        <div className="w-16 h-16 bg-red-150 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-200">
+          <ShieldAlert className="w-8 h-8" />
+        </div>
+        <h3 className="text-xl font-black text-gray-900 mb-2">ID Not Found</h3>
+        <p className="text-sm text-gray-500 font-medium mb-6">This digital ID is not registered or has been cleared by administration.</p>
+        <button 
+          onClick={() => {
+            window.location.href = '/';
+          }}
+          className="w-full bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-black py-3 px-6 rounded-xl text-sm uppercase transition-all shadow-[0_4px_14px_0_rgba(250,204,21,0.25)] active:scale-98 cursor-pointer select-none"
+        >
+          Register Again
+        </button>
+      </div>
+    );
   }
 
   // A worker is cleared overall if they have at least one event cleared, but validation is checked per event at the gate

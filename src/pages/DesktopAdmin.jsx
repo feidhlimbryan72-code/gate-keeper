@@ -109,6 +109,26 @@ export default function DesktopAdmin() {
     }
   };
 
+  const handleDestroyUser = async (id) => {
+    if (window.confirm("Are you sure you want to delete this worker registration? This will clear their digital ID and all associated event assignments/induction records.")) {
+      try {
+        // First delete their assignments
+        const { error: assignErr } = await supabase
+          .from('event_assignments')
+          .delete()
+          .eq('userId', id);
+        if (assignErr) throw assignErr;
+
+        // Then delete the user
+        await deleteDocument('users', id);
+        loadData();
+      } catch (err) {
+        console.error("Error deleting worker registration:", err);
+        alert("Failed to delete registration.");
+      }
+    }
+  };
+
   // -- CRUD Events --
   const handleAddEvent = async (e) => {
     e.preventDefault();
@@ -496,23 +516,51 @@ Under Section 13 of the Safety, Health and Welfare Act 2005, all personnel on si
                           </div>
                       </div>
 
-                      {/* Right Panel: Overview */}
-                      <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 flex flex-col h-fit">
-                        <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight mb-4 flex items-center gap-2">
-                           <LayoutGrid className="w-5 h-5 text-gray-400" /> Database Stats
-                        </h3>
-                        <div className="space-y-4">
-                          <div className="p-4 bg-gray-50 border border-gray-200 rounded-2xl flex justify-between items-center">
-                            <span className="text-sm font-semibold text-gray-500">Manifest Roster Size</span>
-                            <span className="text-xl font-bold text-gray-900">{manifests.length}</span>
+                      {/* Right Panel: Overview & Registered Workers */}
+                      <div className="space-y-6">
+                        <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 flex flex-col h-fit">
+                          <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight mb-4 flex items-center gap-2">
+                             <LayoutGrid className="w-5 h-5 text-gray-400" /> Database Stats
+                          </h3>
+                          <div className="space-y-4">
+                            <div className="p-4 bg-gray-50 border border-gray-200 rounded-2xl flex justify-between items-center">
+                              <span className="text-sm font-semibold text-gray-500">Manifest Roster Size</span>
+                              <span className="text-xl font-bold text-gray-900">{manifests.length}</span>
+                            </div>
+                            <div className="p-4 bg-gray-50 border border-gray-200 rounded-2xl flex justify-between items-center">
+                              <span className="text-sm font-semibold text-gray-500">Registered Digital IDs</span>
+                              <span className="text-xl font-bold text-gray-900">{users.length}</span>
+                            </div>
+                            <div className="p-4 bg-gray-50 border border-gray-200 rounded-2xl flex justify-between items-center">
+                              <span className="text-sm font-semibold text-gray-500">Events Scheduled</span>
+                              <span className="text-xl font-bold text-gray-900">{events.length}</span>
+                            </div>
                           </div>
-                          <div className="p-4 bg-gray-50 border border-gray-200 rounded-2xl flex justify-between items-center">
-                            <span className="text-sm font-semibold text-gray-500">Registered Digital IDs</span>
-                            <span className="text-xl font-bold text-gray-900">{users.length}</span>
-                          </div>
-                          <div className="p-4 bg-gray-50 border border-gray-200 rounded-2xl flex justify-between items-center">
-                            <span className="text-sm font-semibold text-gray-500">Events Scheduled</span>
-                            <span className="text-xl font-bold text-gray-900">{events.length}</span>
+                        </div>
+
+                        <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 flex flex-col h-fit">
+                          <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight mb-4 flex items-center gap-2">
+                             <Users className="w-5 h-5 text-gray-400" /> Registered Digital IDs
+                          </h3>
+                          <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+                            {users.map(u => (
+                              <div key={u.id} className="p-3 bg-gray-50 border border-gray-200 rounded-2xl flex flex-col gap-2 relative">
+                                <div>
+                                  <h4 className="font-bold text-sm text-gray-900 leading-tight">{u.fullName}</h4>
+                                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mt-0.5">{u.company}</p>
+                                  {u.phoneNumber && <p className="text-[10px] text-gray-400 mt-0.5">{u.phoneNumber}</p>}
+                                </div>
+                                <button 
+                                  onClick={() => handleDestroyUser(u.id)}
+                                  className="self-end text-red-500 hover:text-red-700 hover:bg-red-50 px-2.5 py-1.5 rounded-lg border border-transparent hover:border-red-100 font-bold text-[10px] uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" /> Delete Registration
+                                </button>
+                              </div>
+                            ))}
+                            {users.length === 0 && (
+                              <p className="text-xs text-gray-400 font-medium text-center py-4">No registered workers found.</p>
+                            )}
                           </div>
                         </div>
                       </div>
