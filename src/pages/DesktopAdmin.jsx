@@ -113,11 +113,67 @@ export default function DesktopAdmin() {
   const handleAddEvent = async (e) => {
     e.preventDefault();
     if (!eventName.trim() || !eventLocation.trim() || !eventDate) return;
-    await addDocument('events', {
+    
+    // Create the event
+    const newEvent = await addDocument('events', {
       name: eventName.trim(),
       location: eventLocation.trim(),
       date: eventDate
     });
+    
+    if (newEvent && newEvent.id) {
+      // Auto-seed a high-quality boilerplate induction & quiz for this event
+      const defaultSlides = `Welcome to the safety induction briefing for **${eventName.trim()}**!
+
+Please review the following essential safety slides before starting your quiz.
+
+---
+
+### Slide 1: Personal Protective Equipment (PPE)
+* **High-Visibility Vests** are mandatory at all times in the logistics and staging areas.
+* **Safety Footwear** (steel toe cap boots) must be worn during build-up and breakdown phases.
+* Hard hats are required in designated overhead work zones.
+
+---
+
+### Slide 2: Vehicle & Site Logistics
+* The site speed limit is strictly **5 mph** for all vehicles.
+* Give way to pedestrians, plant machinery, and emergency vehicles at all times.
+* Vehicles must park only in designated contractor unloading bays.
+
+---
+
+### Slide 3: Emergency & Incident Reporting
+* In the event of an emergency, evacuate to the designated assembly point at the Main Entrance.
+* Report all accidents, near-misses, or safety hazards to the nearest security guard or site manager.
+* First aid kits are located at the Security HQ Gate and the First Aid Tent.`;
+
+      const defaultQuiz = [
+        {
+          question: "What is the speed limit for vehicles in the staging area?",
+          options: ["5 mph", "15 mph", "25 mph"],
+          correctIndex: 0
+        },
+        {
+          question: "Which of the following is mandatory in the logistics zone?",
+          options: ["Regular trainers", "High-visibility vest and safety footwear", "No specific footwear required"],
+          correctIndex: 1
+        },
+        {
+          question: "Where should you go in the event of an emergency evacuation?",
+          options: ["Your vehicle", "The nearest bar area", "The designated assembly point at the Main Entrance"],
+          correctIndex: 2
+        }
+      ];
+
+      await addDocument('inductions', {
+        eventId: newEvent.id,
+        title: "Safety Induction Briefing",
+        slides: defaultSlides,
+        quiz: defaultQuiz
+      });
+    }
+
     setEventName('');
     setEventLocation('');
     setEventDate('');
