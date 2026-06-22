@@ -1,34 +1,15 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Html5QrcodeScanner, Html5QrcodeSupportedFormats } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 import { getDocument, updateDocument, addDocument } from '../lib/db';
-import { CheckCircle, XCircle, Truck, ArrowRight } from 'lucide-react';
+import { CheckCircle, XCircle, Truck, ArrowRight, ShieldAlert, Camera } from 'lucide-react';
 
 export default function Scanner() {
   const [mode, setMode] = useState('entry'); // 'entry' or 'exit'
   const [scanResult, setScanResult] = useState(null); // { type: 'success'|'error', msg: string, user?: object, vehicle?: object }
   const [linkedUser, setLinkedUser] = useState(null); // When a vehicle needs a driver
+  const [isScanning, setIsScanning] = useState(false);
+  const [error, setError] = useState(null);
   const scannerRef = useRef(null);
-
-  useEffect(() => {
-    // Only initialize scanner if there is no scan result overlay taking up the screen
-    if (scanResult) return;
-
-    scannerRef.current = new Html5QrcodeScanner(
-      "qr-reader",
-      { fps: 10, qrbox: {width: 250, height: 250}, formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE] },
-      false
-    );
-
-    scannerRef.current.render(onScanSuccess, onScanFailure);
-
-    return () => {
-      if (scannerRef.current) {
-        scannerRef.current.clear().catch(error => {
-          console.error("Failed to clear html5QrcodeScanner. ", error);
-        });
-      }
-    };
-  }, [scanResult, mode, linkedUser]);
 
   const processWorkerScan = async (userId) => {
     const user = await getDocument('users', userId);
@@ -43,7 +24,6 @@ export default function Scanner() {
         return;
       }
       if (user.onSiteStatus) {
-         // Already on site, let's treat it as success but maybe note it
          await addLog('entry', userId, 'user');
          setScanResult({ type: 'success', msg: `${user.fullName} is already on site. Double-scan logged.`, user });
          return;
@@ -52,7 +32,6 @@ export default function Scanner() {
       await addLog('entry', userId, 'user');
       setScanResult({ type: 'success', msg: `${user.fullName} CLEARED FOR ENTRY.`, user });
     } else {
-      // exit
       await updateDocument('users', userId, { onSiteStatus: false });
       await addLog('exit', userId, 'user');
       setScanResult({ type: 'success', msg: `${user.fullName} CLEARED FOR EXIT.`, user });
@@ -62,7 +41,6 @@ export default function Scanner() {
   const processVehicleScan = async (vehicleId) => {
     const vehicle = await getDocument('vehicles', vehicleId);
     if (!vehicle) {
-        // Since we didn't build vehicle reg form, auto-register for demo 
         await addDocument('vehicles', {
             id: vehicleId,
             licensePlate: 'SCANNED',
@@ -83,7 +61,6 @@ export default function Scanner() {
         setScanResult({ type: 'success', msg: `VEHICLE CLEARED. Linked to ${linkedUser.fullName}.`, vehicle, user: linkedUser });
         setLinkedUser(null);
     } else {
-        // Exit
         await updateDocument('vehicles', vehicleId, { onSiteStatus: false });
         await addLog('exit', vehicleId, 'vehicle', linkedUser ? linkedUser.id : null);
         setScanResult({ type: 'success', msg: `VEHICLE EXITED.`, vehicle });
@@ -91,11 +68,10 @@ export default function Scanner() {
     }
   };
 
-  const onScanSuccess = async (decodedText, decodedResult) => {
-    // Determine if vehicle or worker
-    // For demo, if it starts with 'v', it's a vehicle. Otherwise user.
-    if (scannerRef.current) {
-        await scannerRef.current.clear();
+  const onScanSuccess = async (decodedText) => {
+    if (scannerRef.current && scannerRef.current.isScanning) {
+        await scannerRef.current.stop().catch(e => console.error(e));
+        setIsScanning(false);
     }
 
     if (decodedText.startsWith('v')) {
@@ -105,16 +81,47 @@ export default function Scanner() {
     }
   };
 
-  const onScanFailure = (error) => {
-    // standard scan tick error
-  };
+  useEffect(() => {
+    if (scanResult) return;
+
+    const scanner = new Html5Qrcode("qr-reader");
+    scannerRef.current = scanner;
+
+    const startScanner = async () => {
+      try {
+        await scanner.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 250, height: 250 } },
+          onScanSuccess,
+          () => {
+            // standard tick warning (ignored to not flood logs)
+          }
+        );
+        setIsScanning(true);
+        setError(null);
+      } catch (err) {
+        console.error("Camera access error:", err);
+        setError("Camera permission required. Please allow camera access in your browser settings.");
+        setIsScanning(false);
+      }
+    };
+
+    // Small delay to ensure DOM element is mounted before library tries to attach
+    const timer = setTimeout(startScanner, 300);
+
+    return () => {
+      clearTimeout(timer);
+      if (scanner && scanner.isScanning) {
+        scanner.stop().catch(e => console.error("Error stopping scanner:", e));
+      }
+    };
+  }, [scanResult, mode, linkedUser]);
 
   const addLog = async (type, entityId, entityType, pairedId = null) => {
       await addDocument('logs', {
           type,
           entityId,
           entityType,
-          guardId: 'g1', // mock guard
           pairedVehicleId: pairedId,
           timestamp: new Date().toISOString()
       });
@@ -122,9 +129,6 @@ export default function Scanner() {
 
   const resetScanner = () => {
       setScanResult(null);
-      if (scannerRef.current) {
-          scannerRef.current.clear().catch(()=>{});
-      }
   };
 
   return (
@@ -167,11 +171,37 @@ export default function Scanner() {
 
       <div className="flex-1 flex flex-col">
         {!scanResult ? (
-            <div className="flex-1 p-4 flex flex-col bg-black">
-                <div id="qr-reader" className="w-full max-w-sm mx-auto overflow-hidden rounded-2xl bg-black border-4 border-gray-800 shadow-2xl flex-1 max-h-[400px]"></div>
-                <div className="mt-6 text-center">
-                    <p className="text-yellow-400 font-medium text-sm">Align QR Code within frame to automatically scan.</p>
+            <div className="flex-1 p-4 flex flex-col bg-black justify-center">
+                <div className="relative w-full max-w-sm mx-auto aspect-square flex flex-col">
+                  <div id="qr-reader" className="w-full h-full overflow-hidden rounded-2xl bg-slate-950 border-4 border-gray-800 shadow-2xl"></div>
+                  
+                  {!isScanning && (
+                    <div 
+                      className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-900 text-center p-6 border-2 border-dashed border-slate-700 rounded-2xl"
+                      style={{ backgroundColor: '#0f172a' }}
+                    >
+                      <ShieldAlert className="w-12 h-12 text-yellow-400 mb-3 animate-pulse" />
+                      <h3 className="font-bold text-white text-base" style={{ color: '#ffffff' }}>Camera Feed Offline</h3>
+                      <p className="text-slate-400 text-xs mt-1 max-w-[240px] leading-relaxed mb-4" style={{ color: '#94a3b8' }}>
+                        {error || "We need permission to access your device's camera to scan barcodes."}
+                      </p>
+                      <button 
+                        onClick={() => window.location.reload()}
+                        className="px-4 py-2 bg-yellow-400 text-gray-900 font-bold rounded-lg text-xs uppercase tracking-wider hover:bg-yellow-500 transition-colors cursor-pointer"
+                        style={{ backgroundColor: '#facc15', color: '#0f172a' }}
+                      >
+                        Enable Camera
+                      </button>
+                    </div>
+                  )}
                 </div>
+
+                {isScanning && (
+                  <div className="mt-6 text-center flex items-center justify-center gap-2 text-yellow-400 animate-pulse font-medium text-sm">
+                    <Camera className="w-4 h-4" />
+                    <span>Live Scanner Active. Align QR code within frame.</span>
+                  </div>
+                )}
             </div>
         ) : (
             <div className="flex-1 flex flex-col items-center justify-center p-6 text-center animate-in zoom-in-95 duration-200">
